@@ -57,8 +57,8 @@ class Replicator():
 		for p in self.pop:
 			p.update_amount(-self.consumption)
 			if not p.is_dead():
-				while (p.total_amount()>self.reproduce_cost):
-					kid=p.procreate_oneM()
+				while (p.total_amount()>self.reproduce_cost+self.consumption):
+					kid=p.procreate_allM()
 					new_pop.append(kid)
 					p.update_amount(-self.reproduce_cost)
 					#print("***",p.strategy_params,"-->",kid.strategy_params)
@@ -68,8 +68,91 @@ class Replicator():
 
 		self.pop = new_pop
 
+	def distance(self,l1,l2):
+		tsum=0
+		for i in range(len(l1)):
+			tsum+=(l1[i]-l2[i])*(l1[i]-l2[i])
+		return tsum
+
+	def append_to_popseries_all(self,pop_series):
+		#[cc,cd,dc,dd]
+		types=[[0,0,0,0],[0,0,0,1],[0,0,1,0],[0,0,1,1],[0,1,0,0],[0,1,0,1],[0,1,1,0],[0,1,1,1],
+				[1,0,0,0],[1,0,0,1],[1,0,1,0],[1,0,1,1],[1,1,0,0],[1,1,0,1],[1,1,1,0],[1,1,1,1]
+				]
+
+		pop_density=[]
+		for i in range(16):
+			pop_density.append(0)
+			
+		for p in self.pop:
+			mini=0
+			mind=self.distance(types[mini],p.strategy_params)
+			for i in range(len(types)):
+				d = self.distance(types[i],p.strategy_params)
+				if d < mind:
+					mind=d
+					mini=i
+			pop_density[mini]+=1
+		for i in range(16):
+			pop_series[i].append(pop_density[i])
+
+		return pop_series
+
+	def append_to_popseries2(self,pop_series,vocab):
+		#[cc,cd,dc,dd]
+		types=[[0,0,0,0],[1,0,1,1],[1,0,1,0],[1,0,0,1],[1,1,1,1]]
+
+		if(vocab=="closest"):
+			pop_density=[0,0,0,0,0]
+			for p in self.pop:
+				mini=0
+				mind=self.distance(types[mini],p.strategy_params)
+				for i in range(len(types)):
+					d = self.distance(types[i],p.strategy_params)
+					if d < mind:
+						mind=d
+						mini=i
+				pop_density[mini]+=1
+			for i in range(5):
+				pop_series[i].append(pop_density[i])
+
+		elif(vocab=="pop types"):
+				pop_density=[0,0,0,0,0]
+				for p in self.pop:
+					for i in range(1,6):
+						if p.strategy_params[0]+p.strategy_params[1]+p.strategy_params[2]+p.strategy_params[3] <=0.8*i:
+							pop_density[i-1]+=1
+							break
+				for i in range(5):
+					pop_series[i].append(pop_density[i])
+
+		elif(vocab=="avg reward"):
+			r=0
+			for p in self.pop:
+				r+=p.total_amount()
+			r/=len(self.pop)
+			pop_series[0].append(r)
+
+		return pop_series
+
 	def append_to_popseries(self,pop_series,vocab):
-		if(vocab=="pop types"):
+		types=[[0,0],[0.5,0.5],[1,0],[0,1],[1,1]]
+
+		if(vocab=="closest"):
+			pop_density=[0,0,0,0,0]
+			for p in self.pop:
+				mini=0
+				mind=self.distance(types[mini],p.strategy_params)
+				for i in range(len(types)):
+					d = self.distance(types[i],p.strategy_params)
+					if d < mind:
+						mind=d
+						mini=i
+				pop_density[mini]+=1
+			for i in range(5):
+				pop_series[i].append(pop_density[i])
+
+		elif(vocab=="pop types"):
 				pop_density=[0,0,0,0,0]
 				for p in self.pop:
 					for i in range(1,6):
@@ -78,17 +161,6 @@ class Replicator():
 							break
 				for i in range(5):
 					pop_series[i].append(pop_density[i])
-
-		elif(vocab=="avg"):
-			c=0
-			d=0
-			for p in self.pop:
-				c+=p.strategy_params[0]
-				d+=p.strategy_params[1]
-			c/=len(self.pop)
-			d/=len(self.pop)
-			pop_series[0].append(c)
-			pop_series[1].append(d)
 
 		elif(vocab=="avg reward"):
 			r=0
@@ -101,47 +173,69 @@ class Replicator():
 
 
 	def play_days(self,n,vocab):
-		if(vocab=="pop types"):
+		if(vocab=="pop types" or vocab=="closest"):
 			pop_series=[[],[],[],[],[]]
-		elif(vocab=="avg"):
-			pop_series=[[],[]]
 		elif(vocab=="avg reward"):
 			pop_series=[[]]
+		elif(vocab=="all closest"):
+			pop_series=[]
+			for i in range(16):
+				pop_series.append([])
 
-		pop_series=self.append_to_popseries(pop_series,vocab)
+		if vocab=='all closest':
+			pop_series=self.append_to_popseries_all(pop_series)
+		else:
+			pop_series=self.append_to_popseries2(pop_series,vocab)
 
 		for i in range(n):
 			if i%100 ==0:
 				print(i," days")
 
 			self.play_day()
-			pop_series=self.append_to_popseries(pop_series,vocab)
+			if vocab=='all closest':
+				pop_series=self.append_to_popseries_all(pop_series)
+			else:
+				pop_series=self.append_to_popseries2(pop_series,vocab)
 			
-		self.plot(pop_series)
+		self.plot(pop_series,vocab)
 		for p in self.pop:
 			print(p.strategy_params)
 
 		return self.pop
 
-	def plot(self,pop_series):
+	def plot(self,pop_series,vocab):
+		types=[[0,0,0,0],[0,0,0,1],[0,0,1,0],[0,0,1,1],[0,1,0,0],[0,1,0,1],[0,1,1,0],[0,1,1,1],
+				[1,0,0,0],[1,0,0,1],[1,0,1,0],[1,0,1,1],[1,1,0,0],[1,1,0,1],[1,1,1,0],[1,1,1,1]
+				]
 		for j in pop_series:
 			print(j[-1],end=" ")
 		print("")
 
 		for ps in pop_series:
 			plt.plot(ps)
+
+		if vocab=="all closest":
+			plt.legend(types,loc='upper left', shadow=True)
 		plt.show()
 
 game_para=[0.5, 0, 1, 0.2]
 total_turns=100
 total_res=100
 pop=[]
-for i in range(40):
-	#pop.append(Strategy.M1(total_turns,[1,0]))
-	#pop.append(Strategy.M1(total_turns,[0,0]))
-	pop.append(Strategy.M1(total_turns,[1,0]))
+
+types=[[0,0,0,0],[0,0,0,1],[0,0,1,0],[0,0,1,1],[0,1,0,0],[0,1,0,1],[0,1,1,0],[0,1,1,1],
+				[1,0,0,0],[1,0,0,1],[1,0,1,0],[1,0,1,1],[1,1,0,0],[1,1,0,1],[1,1,1,0],[1,1,1,1]
+				]
+for i in range(2):
+	for t in types:
+		pop.append(Strategy.M2_2(total_turns,t))
+	#pop.append(Strategy.M2_2(total_turns,[0,0,0,0]))
+	#pop.append(Strategy.M2_2(total_turns,[1,1,1,1]))
+	#pop.append(Strategy.M2_2(total_turns,[1,0,0,0]))
+	#pop.append(Strategy.M2_2(total_turns,[1,0,1,0]))
+	#pop.append(Strategy.M2_2(total_turns,[1,1,1,0]))
 
 r=Replicator(game_para,total_turns,total_res,pop)
-r.play_days(40000,"pop types")
+r.play_days(10000,"all closest")
 
 
