@@ -98,6 +98,41 @@ class Replicator():
 
 		return pop_series
 
+	def append_to_popseries_var_types(self,pop_series,var_list):
+		pop_density=[]
+		for i in var_list:
+			pop_density.append(0)
+
+		for p in self.pop:
+			var = float(p.type[3:])
+			for i in range(len(pop_density)):
+				if var_list[i]==var:
+					pop_density[i]+=1
+
+		for i in range(len(pop_series)):
+			pop_series[i].append(pop_density[i])
+
+		return pop_series
+
+	def append_to_popseries_types(self,pop_series):
+		pop_density=[0,0,0]
+		for p in self.pop:
+			if p.type=='M1':
+				pop_density[0]+=1
+			elif p.type=='M2':
+				pop_density[1]+=1
+			elif p.type=='M2_2':
+				pop_density[2]+=1
+			else:
+				print("Error: Wrong type")
+				return None
+
+		for i in range(len(pop_series)):
+			pop_series[i].append(pop_density[i])
+
+		return pop_series
+
+
 	def append_to_popseries2(self,pop_series,vocab):
 		#[cc,cd,dc,dd]
 		types=[[0,0,0,0],[1,0,1,1],[1,0,1,0],[1,0,0,1],[1,1,1,1]]
@@ -177,6 +212,14 @@ class Replicator():
 			pop_series=[[],[],[],[],[]]
 		elif(vocab=="avg reward"):
 			pop_series=[[]]
+		elif vocab=='types':
+			pop_series=[[],[],[]]
+		elif vocab=='var types':
+			pop_series=[]
+			var_list=[0.0001,0.0003,0.0005,0.0007,0.001,0.005,0.01,0.05,0.1,0.2]
+
+			for i in var_list:
+				pop_series.append([])
 		elif(vocab=="all closest"):
 			pop_series=[]
 			for i in range(16):
@@ -184,6 +227,10 @@ class Replicator():
 
 		if vocab=='all closest':
 			pop_series=self.append_to_popseries_all(pop_series)
+		elif vocab=='types':
+			pop_series=self.append_to_popseries_types(pop_series)
+		elif vocab=='var types':
+			pop_series=self.append_to_popseries_var_types(pop_series,var_list)
 		else:
 			pop_series=self.append_to_popseries2(pop_series,vocab)
 
@@ -194,6 +241,10 @@ class Replicator():
 			self.play_day()
 			if vocab=='all closest':
 				pop_series=self.append_to_popseries_all(pop_series)
+			elif vocab=='types':
+				pop_series=self.append_to_popseries_types(pop_series)
+			elif vocab=='var types':
+				pop_series=self.append_to_popseries_var_types(pop_series,var_list)
 			else:
 				pop_series=self.append_to_popseries2(pop_series,vocab)
 			
@@ -207,6 +258,7 @@ class Replicator():
 		types=[[0,0,0,0],[0,0,0,1],[0,0,1,0],[0,0,1,1],[0,1,0,0],[0,1,0,1],[0,1,1,0],[0,1,1,1],
 				[1,0,0,0],[1,0,0,1],[1,0,1,0],[1,0,1,1],[1,1,0,0],[1,1,0,1],[1,1,1,0],[1,1,1,1]
 				]
+
 		for j in pop_series:
 			print(j[-1],end=" ")
 		print("")
@@ -214,28 +266,94 @@ class Replicator():
 		for ps in pop_series:
 			plt.plot(ps)
 
+		if vocab=="types":
+			plt.title('Memory Types')
+			plt.legend(['M1','M2','M2_2'],loc='upper right', shadow=True)
+
 		if vocab=="all closest":
-			plt.legend(types,loc='upper left', shadow=True)
+			plt.title('Closest to 16')
+			plt.legend(types,loc='upper right', shadow=True)
+		
+		if vocab=="var types":
+			plt.title('Rate of Mutation')
+			plt.legend([0.0001,0.0003,0.0005,0.0007,0.001,0.005,0.01,0.05,0.1,0.2],loc='upper right', shadow=True)
+
 		plt.show()
 
 game_para=[0.5, 0, 1, 0.2]
 total_turns=100
-total_res=100
+total_res=500
 pop=[]
 
-types=[[0,0,0,0],[0,0,0,1],[0,0,1,0],[0,0,1,1],[0,1,0,0],[0,1,0,1],[0,1,1,0],[0,1,1,1],
+types2=[[0,0,0,0],[0,0,0,1],[0,0,1,0],[0,0,1,1],[0,1,0,0],[0,1,0,1],[0,1,1,0],[0,1,1,1],
 				[1,0,0,0],[1,0,0,1],[1,0,1,0],[1,0,1,1],[1,1,0,0],[1,1,0,1],[1,1,1,0],[1,1,1,1]
 				]
-for i in range(2):
-	for t in types:
-		pop.append(Strategy.M2_2(total_turns,t))
+types1=[[0,0],[0,1],[1,0],[1,1]]
+
+
+def diff_memory_types():
+	game_para=[0.5, 0, 1, 0.2]
+	total_turns=100
+	total_res=500
+	pop=[]
+
+	types2=[[0,0,0,0],[0,0,0,1],[0,0,1,0],[0,0,1,1],[0,1,0,0],[0,1,0,1],[0,1,1,0],[0,1,1,1],
+					[1,0,0,0],[1,0,0,1],[1,0,1,0],[1,0,1,1],[1,1,0,0],[1,1,0,1],[1,1,1,0],[1,1,1,1]
+					]
+	types1=[[0,0],[0,1],[1,0],[1,1]]
+
+	for i in range(5):
+		for t in types1:
+			pop.append(Strategy.M1(total_turns,t))
+		for t in types2:
+			pop.append(Strategy.M2(total_turns,t))
+			pop.append(Strategy.M2_2(total_turns,t))
+
+	r=Replicator(game_para,total_turns,total_res,pop)
+	r.play_days(500,"types")
+
+def closest_to_16():
+	game_para=[0.5, 0, 1, 0.2]
+	total_turns=100
+	total_res=500
+	pop=[]
+
+	types2=[[0,0,0,0],[0,0,0,1],[0,0,1,0],[0,0,1,1],[0,1,0,0],[0,1,0,1],[0,1,1,0],[0,1,1,1],
+					[1,0,0,0],[1,0,0,1],[1,0,1,0],[1,0,1,1],[1,1,0,0],[1,1,0,1],[1,1,1,0],[1,1,1,1]
+					]
+
+	for i in range(5):
+		for t in types2:
+			pop.append(Strategy.M2(total_turns,t))
+
 	#pop.append(Strategy.M2_2(total_turns,[0,0,0,0]))
 	#pop.append(Strategy.M2_2(total_turns,[1,1,1,1]))
 	#pop.append(Strategy.M2_2(total_turns,[1,0,0,0]))
 	#pop.append(Strategy.M2_2(total_turns,[1,0,1,0]))
 	#pop.append(Strategy.M2_2(total_turns,[1,1,1,0]))
 
-r=Replicator(game_para,total_turns,total_res,pop)
-r.play_days(10000,"all closest")
+	r=Replicator(game_para,total_turns,total_res,pop)
+	r.play_days(1000,"closest")
 
+def var_types():
+	game_para=[0.5, 0, 1, 0.2]
+	total_turns=100
+	total_res=1500
+	pop=[]
 
+	types2=[[0,0,0,0],[0,0,0,1],[0,0,1,0],[0,0,1,1],[0,1,0,0],[0,1,0,1],[0,1,1,0],[0,1,1,1],
+					[1,0,0,0],[1,0,0,1],[1,0,1,0],[1,0,1,1],[1,1,0,0],[1,1,0,1],[1,1,1,0],[1,1,1,1]
+					]
+
+	var_list=[0.0001,0.0003,0.0005,0.0007,0.001,0.005,0.01,0.05,0.1,0.2]
+
+	for i in range(3):
+		for var in var_list:
+			for t in types2:
+				pop.append(Strategy.Mp(total_turns,t,var))
+
+	r=Replicator(game_para,total_turns,total_res,pop)
+	r.play_days(300,"var types")
+
+var_types()
+#diff_memory_types()

@@ -11,6 +11,7 @@ class Player():
     	self.turn=1
     	self.total_turns=total_turns
     	self.amount=0
+    	self.type=None
 
     def make_move(self):
     	return None
@@ -67,6 +68,7 @@ class M1(Player):
 		Player.__init__(self,total_turns)
 		self.starting_move='C'
 		self.strategy_params=strategy_params
+		self.type='M1'
 
 	def procreate_allM(self):
 
@@ -104,6 +106,7 @@ class M2(Player): # 2 moves history of opp
 		Player.__init__(self,total_turns)
 		self.starting_move='C'
 		self.strategy_params=strategy_params
+		self.type='M2'
 
 	def procreate_allM(self):
 
@@ -152,6 +155,7 @@ class M2_2(Player): # 2 moves history of opp
 		Player.__init__(self,total_turns)
 		self.starting_move='C'
 		self.strategy_params=strategy_params
+		self.type='M2_2'
 
 	def procreate_allM(self):
 
@@ -171,6 +175,56 @@ class M2_2(Player): # 2 moves history of opp
 		new_strat[i]=max(0,min(1, new_strat[i]+r))
 
 		kid = M2_2(self.total_turns,new_strat)
+		return kid
+
+	def make_move(self):
+		[cc,cd,dc,dd]=self.strategy_params
+		if self.turn==1:
+			return self.starting_move
+
+		else:
+			if self.my_move_history[-1]=='C' and self.opp_move_history[-1]=='C':
+				return self.returnC(cc)
+			elif self.my_move_history[-1]=='C' and self.opp_move_history[-1]=='NC':
+				return self.returnC(cd)
+			elif self.my_move_history[-1]=='NC' and self.opp_move_history[-1]=='C':
+				return self.returnC(dc)
+			elif self.my_move_history[-1]=='NC' and self.opp_move_history[-1]=='NC':
+				return self.returnC(dd)
+			else:
+				print("history: ",self.my_move_history,"  ,  ",self.opp_move_history)
+				print("Error: Invalid history")
+				return None
+
+class Mp(Player): # 2 moves history of opp
+	def __init__(self,total_turns,strategy_params,var):
+		Player.__init__(self,total_turns)
+		self.starting_move='C'
+		self.strategy_params=strategy_params
+		self.var=var
+		self.type='Mp_'+str(var)
+
+	def normalp(self):
+		return np.random.normal(0,self.var)
+
+	def procreate_allM(self):
+
+		new_strat=[]
+		for p in self.strategy_params:
+			r = self.normalp()
+			new_strat.append(max(0,min(1, p+r)))
+
+		kid = Mp(self.total_turns,new_strat,self.var)
+		return kid
+
+	def procreate_oneM(self):
+
+		i = random.randint(0,len(self.strategy_params)-1)
+		r = normalp()
+		new_strat=copy.deepcopy(self.strategy_params)
+		new_strat[i]=max(0,min(1, new_strat[i]+r))
+
+		kid = Mp(self.total_turns,new_strat,self.var)
 		return kid
 
 	def make_move(self):

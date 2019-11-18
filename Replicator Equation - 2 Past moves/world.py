@@ -44,4 +44,4 @@ def world(no_worlds,days,pop_density):
 
 total_turns=20
 total_res=1000	
-world(100,30,pop_density =[1,1,1,1,1,1,1,1,1])
+world(1,30,pop_density =[1,1,1,1,1,1,1,1,1])
