@@ -51,29 +51,33 @@ class Player():
     		return 'NC'
 
 class Mperp(Player): # A player with random attributes, mutation rate var, and memory given by (my_memory,opp_memory), with percepton reulatory network
-	def __init__(self,total_turns,var,my_memory,opp_memory,layer_list):
+	def __init__(self,total_turns,var,my_memory,opp_memory,layer_list,strategy_params=None):
 		Player.__init__(self,total_turns)
 		self.starting_move='C'
+		self.layer_list=layer_list
 		weight_list=[my_memory+opp_memory]+layer_list
 		bias_list=layer_list+[1]
-		self.weights=[]
-		self.bias=[]
-		temp=[]
-		temp2=[]
-		for i in range(weight_list[n]):
-			temp2.append(random.random())
-		for j in range(bias_list[n]):
-			temp.append(copy.deepcopy(temp2))
-		for n in range(len(weight_list)):
-			self.weights.append(copy.deepcopy(temp))
-
-		self.normalize_weights()
-
-		for n in bias_list:
+		if strategy_params==None:
+			self.weights=[]
+			self.bias=[]
 			temp=[]
-			for i in range(n):
-				temp.append(random.random())
-			self.bias.append(temp)
+			temp2=[]
+			for i in range(weight_list[n]):
+				temp2.append(random.random())
+			for j in range(bias_list[n]):
+				temp.append(copy.deepcopy(temp2))
+			for n in range(len(weight_list)):
+				self.weights.append(copy.deepcopy(temp))
+
+			self.normalize_weights()
+
+			for n in bias_list:
+				temp=[]
+				for i in range(n):
+					temp.append(random.random())
+				self.bias.append(temp)
+		else:
+			self.weights,self.bias=strategy_params
 
 		#Memory is stored as a set of weights and bias
 		#Final value 1 or 0 correpsonds to playing C or NC
@@ -101,27 +105,68 @@ class Mperp(Player): # A player with random attributes, mutation rate var, and m
 
 	def procreate_allM(self):
 
-		new_strat=[]
-		for p in self.strategy_params:
-			r = self.normalp()
-			new_strat.append(max(0,min(1, p+r)))
+		new_weights=copy.deepcopy(self.weights)
+		new_bias=copy.deepcopy(self.bias)
+		for layer_no,layer in enumerate(new_weights):
+			for node_no,node in enumerate(layer):
+				for w_no,w in enumerate(node):
+					new_w=self.normalp()+new_weights[layer_no][node_no][w_no]
+					new_weights[layer_no][node_no][w_no]=max(0,min(1, new_w))
 
-		kid = Mn(self.total_turns,self.var,self.my_memory,self.opp_memory,new_strat)
+		for layer_no,layer in enumerate(new_bias):
+			for b_no,b in enumerate(layer):
+				new_b=new_bias[layer_no][b_no]+self.normalp()
+				new_bias[layer_no][b_no]=max(0,min(1, new_b))
+
+		new_strat=[]
+		new_strat=(new_weights,new_bias)
+
+		kid = Mperp(self.total_turns,self.var,self.my_memory,self.opp_memory,self.layer_list,new_strat)
 		return kid
 
 	def procreate_oneM(self):
 
-		i = random.randint(0,len(self.strategy_params)-1)
-		r = normalp()
-		new_strat=copy.deepcopy(self.strategy_params)
-		new_strat[i]=max(0,min(1, new_strat[i]+r))
+		new_weights=copy.deepcopy(self.weights)
+		new_bias=copy.deepcopy(self.bias)
+		layer_no=random.choice(len(self.weights))
+		node_no=random.choice(len(self.weights[layer_no]))
 
-		kid = Mn(self.total_turns,self.var,self.my_memory,self.opp_memory,new_strat)
+		for w_no,w in enumerate(new_weights[layer_no][node_no]):
+			new_w=self.normalp()+new_weights[layer_no][node_no][w_no]
+			new_weights[layer_no][node_no][w_no]=max(0,min(1, new_w))
+		
+		new_b=new_bias[layer_no][node_no]+self.normalp()
+		new_bias[layer_no][node_no]=max(0,min(1, new_b))
+
+		new_strat=[]
+		new_strat=(new_weights,new_bias)
+
+		kid = Mperp(self.total_turns,self.var,self.my_memory,self.opp_memory,self.layer_list,new_strat)
 		return kid
 
 	def getp_from_strategy_params(self,para_list):
-		
-		return
+		node_values=copy.deepcopy(self.bias)
+
+		for b_node in range(len(node_values[0])):
+			b_node_value=0
+			for index,input_move in enumerate(para_list):
+				if input_move=='C':
+					input_val=1
+				else:
+					input_val=0
+				b_node_value+=input_val*self.weights[0][b_node][index]
+
+			node_values[0][b_node] = b_node_value
+
+		for layer_no in range(1,len(node_values)):
+			for b_node in range(len(node_values[layer_no])):
+				b_node_value=0
+				for index,input_val in enumerate(node_values[layer_no-1]):
+					b_node_value+=input_val*self.weights[layer_no][b_node][index]
+
+				node_values[layer_no][b_node] = b_node_value
+
+		return node_values[-1][0]
 
 	def make_move(self):
 		if self.turn==1:
@@ -130,5 +175,12 @@ class Mperp(Player): # A player with random attributes, mutation rate var, and m
 			#Make better
 			return self.returnC(0.5)
 		else:
-			
-			return 
+			if self.my_memory==0:
+				para_list = self.opp_move_history[int(-self.opp_memory):]
+			elif self.opp_memory==0:
+				para_list = self.my_move_history[int(-self.my_memory):]
+			else:
+				para_list = self.my_move_history[int(-self.my_memory):]+self.opp_move_history[int(-self.opp_memory):]
+
+			p = self.getp_from_strategy_params(para_list)
+			return self.returnC(p)
